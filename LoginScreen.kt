@@ -1,7 +1,9 @@
 package np.ict.mad.navigationui
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,12 +24,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import np.ict.mad.navigationui.ui.theme.NavigationUITheme
 
 class LoginScreen : ComponentActivity() {
@@ -41,6 +46,7 @@ class LoginScreen : ComponentActivity() {
                         onLoginSuccess = {
                             val intent = Intent(this@LoginScreen, MainActivity::class.java)
                             startActivity(intent)
+                            
                         },
                         modifier = Modifier.padding(innerPadding)
                     )
@@ -59,6 +65,9 @@ fun LoginScreen(
     var username by rememberSaveable { mutableStateOf("")}
     var password by rememberSaveable {mutableStateOf("")}
 
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
     Box(
         modifier = modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
@@ -66,7 +75,12 @@ fun LoginScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ){
-            Text(text = "Login Page", style = MaterialTheme.typography.headlineLarge)
+            Text(
+                text = "Login Page",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+
             Spacer(modifier = Modifier.padding(12.dp))
             OutlinedTextField(
                 value = username,
@@ -84,12 +98,41 @@ fun LoginScreen(
             Spacer(modifier = Modifier.padding(12.dp))
             Button(
                 onClick = {
-                    if (validateLogin(username, password)){
-                        onLoginSuccess()
+                    scope.launch {
+                        val isValid = validateLogin(context, username, password)
+                        if(isValid){
+                            onLoginSuccess()
+                        }else{
+                            Toast.makeText(context,"Invalid Crendentials", Toast.LENGTH_SHORT).show()
+                        }
                     }
+                    /*
+                    if (validateLogin(context, username, password)){
+                        onLoginSuccess()
+                    }*/
                 }
             ){
                 Text(text = "Login")
+            }
+            Spacer(modifier = Modifier.padding(16.dp))
+            Button(
+                onClick = {
+                    if(username.isNotEmpty() && password.isNotEmpty()){
+                        scope.launch {
+                            val isCreated = performSignUp(context, username, password)
+                            if(isCreated){
+                                Toast.makeText(context, "Successfully Created User!!", Toast.LENGTH_LONG).show()
+                            }else{
+                                Toast.makeText(context, "SignUp failed!", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }else{
+                        Toast.makeText(context, "Enter some details?", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+            {
+                Text(text = "Sign Up")
             }
         }
 
@@ -97,8 +140,41 @@ fun LoginScreen(
 
 }
 
-fun validateLogin(username: String, password: String): Boolean{
-    val myUsername = "admin"
-    val myPassword = "password"
-    return username == myUsername && password == myPassword
+suspend fun performSignUp(context: Context, username: String, password: String): Boolean{
+    //Firebase
+    return FirebaseHelper().signUp(username, password)
+
+    /*Room
+   // val db = AppDatabase.getDatabase(context)
+   // if(db.userDao().getUser(username) == null){
+    //    db.userDao().insertUser(UserEntity(username, password))
+    //    return true
+   // }
+   // return false
+
+//Datastore
+    //return DataStoreHelper(context).saveUser(username, password)
+//SharedPreference
+    //val prefsHelper = SharedPreferencesHelper(context)
+    //return prefsHelper.saveUser(username, password)
+
+//return false*/
+}
+suspend fun validateLogin(context: Context, username: String, password: String): Boolean{
+    //firebase
+    return FirebaseHelper().signIn(username, password)
+
+    //room
+  //  val user = AppDatabase.getDatabase(context).userDao().getUser(username)
+  //  return user!=null && user.password == password
+
+    //DataStore
+    //return DataStoreHelper(context).isValidUser(username, password)
+//Shared Preferences
+//val prefsHelper = SharedPreferencesHelper(context)
+    //return prefsHelper.isValidUser(username, password)
+    //Hardcoded
+//    val myUsername = "admin"
+//    val myPassword = "password"
+ //   return username == myUsername && password == myPassword
 }
